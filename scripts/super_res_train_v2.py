@@ -86,18 +86,20 @@ def run_training(args, rank):
         **args_to_dict(args, sr_model_and_diffusion_defaults().keys())
     )
 
-    model.to(dist_util.dev())
+    # model.to(dist_util.dev())
+    if args.use_fp16:
+      model.half()
     
     # Wrap model with DistributedDataParallel for multi-GPU training
-    if dist.is_initialized() and dist.get_world_size() > 1:
-        model = th.nn.parallel.DistributedDataParallel(
-            model, 
-            device_ids=[dist.get_rank()],
-            output_device=dist.get_rank(),
-            broadcast_buffers=False,
-            find_unused_parameters=True
-        )
-        logger.log(f"Model wrapped with DistributedDataParallel on rank {dist.get_rank()}")
+    # if dist.is_initialized() and dist.get_world_size() > 1:
+    #     model = th.nn.parallel.DistributedDataParallel(
+    #         model, 
+    #         device_ids=[dist.get_rank()],
+    #         output_device=dist.get_rank(),
+    #         broadcast_buffers=False,
+    #         find_unused_parameters=True
+    #     )
+    #     logger.log(f"Model wrapped with DistributedDataParallel on rank {dist.get_rank()}")
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
 
     args.normalizer = [float(value) for value in args.normalizer.split(',')]
