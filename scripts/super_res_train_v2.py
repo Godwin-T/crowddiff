@@ -24,6 +24,7 @@ from time import time, sleep
 
 import torch.nn.functional as F
 import torch.distributed as dist
+import torch.multiprocessing as mp
 
 from guided_diffusion import dist_util, logger
 from guided_diffusion.image_datasets import load_data
@@ -34,14 +35,45 @@ from guided_diffusion.script_util import (
     args_to_dict,
     add_dict_to_argparser,
 )
-from guided_diffusion.train_util import TrainLoop
+from guided_diffusion.train_util_v2 import TrainLoop, setup_dist_training
 
 
 def main():
     args = create_argparser().parse_args()
+    
+    if args.multi_gpu:
+        # Use all available GPUs
+        n_gpus = th.cuda.device_count()
+        if n_gpus > 1:
+            print(f"Using {n_gpus} GPUs for distributed training")
+            mp.spawn(train_worker, args=(n_gpus, args), nprocs=n_gpus, join=True)
+        else:
+            print("Only one GPU available, running in single GPU mode")
+            train_worker(0, 1, args)
+    else:
+        # Original single GPU code path
+        dist_util.setup_dist()
+        logger.configure(dir=args.log_dir)#, format_strs=['stdout', 'wandb'])
+        run_training(args)
 
-    dist_util.setup_dist()
-    logger.configure(dir=args.log_dir)#, format_strs=['stdout', 'wandb'])
+def train_worker(rank, world_size, args):
+    """Per-process training function for multi-GPU training"""
+    # Setup process group
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    
+    # Configure device and logger
+    th.cuda.set_device(rank)
+    logger.configure(dir=args.log_dir, rank=rank)
+    
+    run_training(args)
+    
+    # Clean up process group
+    dist.destroy_process_group()
+
+def run_training(args):
+    """Main training logic, separated to be called from either single or multi-GPU paths"""
 
     logger.log("creating model...")
 
@@ -49,12 +81,18 @@ def main():
         **args_to_dict(args, sr_model_and_diffusion_defaults().keys())
     )
 
-    for layer, block in enumerate(model.middle_block):
-        print(layer, block)
-        sleep(5)
-    #assert False
-
     model.to(dist_util.dev())
+    
+    # Wrap model with DistributedDataParallel for multi-GPU training
+    if dist.is_initialized() and dist.get_world_size() > 1:
+        model = th.nn.parallel.DistributedDataParallel(
+            model, 
+            device_ids=[dist.get_rank()],
+            output_device=dist.get_rank(),
+            broadcast_buffers=False,
+            find_unused_parameters=True
+        )
+        logger.log(f"Model wrapped with DistributedDataParallel on rank {dist.get_rank()}")
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
 
     args.normalizer = [float(value) for value in args.normalizer.split(',')]
@@ -77,7 +115,7 @@ def main():
     val_data = load_data_for_worker(args)
 
     logger.log("training...")
-    TrainLoop(
+    training_loop = TrainLoop(
         model=model,
         diffusion=diffusion,
         data=data,
@@ -98,7 +136,8 @@ def main():
         schedule_sampler=schedule_sampler,
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
-    ).run_loop()
+    )
+    setup_dist_training(train_loop=training_loop)
 
 
 def load_superres_data(data_dir, batch_size, large_size, small_size, normalizer, pred_channels, class_cond=False):
@@ -205,6 +244,7 @@ def create_argparser():
         normalizer='0.2',
         pred_channels=3,
         num_classes=13,
+        multi_gpu=True,  # Enable multi-GPU training by default
     )
     defaults.update(sr_model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

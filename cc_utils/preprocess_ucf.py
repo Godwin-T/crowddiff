@@ -60,6 +60,7 @@ def main(args):
 
     # output directory
     output_dir = os.path.join(args.output_dir, args.dataset)
+    print(f"{data_dir}, {output_dir}")
 
     try:
         os.mkdir(output_dir)
@@ -82,6 +83,8 @@ def main(args):
     crowd_bin = dict()
 
     img_list = sorted(glob.glob(os.path.join(data_dir,mode,'*.jpg')))
+    print("Image List")
+    print(len(img_list))
     
 
     sub_list = setup_sub_folders(img_list, output_dir, ndevices=args.ndevices)
@@ -142,7 +145,7 @@ def main(args):
             if image_size == -1:
                 images, densities = np.expand_dims(image, 0), np.expand_dims(density, 0)
             else:
-                if mode == 'train' or mode == 'test':
+                if mode == 'Train' or mode == 'Test':
                     images = create_overlapping_crops(image, image_size, 0.5)
                     densities = create_overlapping_crops(density, image_size, 0.5)
                 else:
@@ -196,10 +199,6 @@ def main(args):
 
 
 def create_crops(image, args):
-    """Create image crops from the crowd dataset
-    inputs: crowd image, density map
-    outputs: model_kwargs and crowd count
-    """
 
     # create a padded image
     image = create_padded_image(image, 256)
@@ -353,12 +352,6 @@ def create_non_overlapping_crops(image, density, image_size):
 
 
 def create_overlapping_crops(image, crop_size, overlap):
-    """
-    Create overlapping image crops from the crowd image
-    inputs: model_kwargs, arguments
-
-    outputs: model_kwargs and crowd count
-    """
     
     X_points = start_points(size=image.shape[1],
                             split_size=crop_size,
