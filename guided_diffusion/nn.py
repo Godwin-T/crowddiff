@@ -18,7 +18,7 @@ class GroupNorm32(nn.GroupNorm):
 
     # pass
     def forward(self, x):
-        return super().forward(x.float()).type(x.dtype)
+        return super().forward(x )#.float()).type(x.dtype)
 
 
 def conv_nd(dims, *args, **kwargs):
