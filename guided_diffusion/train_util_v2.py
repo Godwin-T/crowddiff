@@ -406,33 +406,47 @@ def log_loss_dict(diffusion, ts, losses):
             quartile = int(4 * sub_t / diffusion.num_timesteps)
             logger.logkv_mean(f"{key}_q{quartile}", sub_loss)
 
-def create_train_loop(train_loop):
-            # Create a new instance with the same parameters
-    return TrainLoop(
-        model=train_loop.model, #.__class__(),  # Create new model instance
-        diffusion=train_loop.diffusion,
-        data=train_loop.data,
-        val_data=train_loop.val_data,
-        normalizer=train_loop.normalizer,
-        pred_channels=train_loop.pred_channels,
-        base_samples=train_loop.base_samples,
-        batch_size=train_loop.batch_size,
-        microbatch=train_loop.microbatch,
-        lr=train_loop.lr,
-        ema_rate=train_loop.ema_rate,
-        log_dir=train_loop.log_dir,
-        log_interval=train_loop.log_interval,
-        save_interval=train_loop.save_interval,
-        resume_checkpoint=train_loop.resume_checkpoint,
-        use_fp16=train_loop.use_fp16,
-        fp16_scale_growth=train_loop.fp16_scale_growth,
-        schedule_sampler=train_loop.schedule_sampler,
-        weight_decay=train_loop.weight_decay,
-        lr_anneal_steps=train_loop.lr_anneal_steps,
-        multi_gpu=True,
-    )
+def extract_train_loop_args(train_loop):
+    """Extract arguments from a TrainLoop instance as dictionaries that can be passed between processes"""
+    # Extract model and diffusion separately
+    model_args = {
+        "model": train_loop.model,
+    }
+    
+    diffusion_args = {
+        "diffusion": train_loop.diffusion,
+    }
+    
+    # Extract data loaders as functions that create fresh iterators
+    data_args = {
+        "data_fn": lambda: train_loop.data,
+        "val_data_fn": lambda: train_loop.val_data,
+    }
+    
+    # Extract all other arguments
+    train_loop_args = {
+        "normalizer": train_loop.normalizer,
+        "pred_channels": train_loop.pred_channels,
+        "base_samples": train_loop.base_samples,
+        "batch_size": train_loop.batch_size,
+        "microbatch": train_loop.microbatch,
+        "lr": train_loop.lr,
+        "ema_rate": train_loop.ema_rate,
+        "log_dir": train_loop.log_dir,
+        "log_interval": train_loop.log_interval,
+        "save_interval": train_loop.save_interval,
+        "resume_checkpoint": train_loop.resume_checkpoint,
+        "use_fp16": train_loop.use_fp16,
+        "fp16_scale_growth": train_loop.fp16_scale_growth,
+        "schedule_sampler": train_loop.schedule_sampler,
+        "weight_decay": train_loop.weight_decay,
+        "lr_anneal_steps": train_loop.lr_anneal_steps,
+        "multi_gpu": True,
+    }
+    
+    return model_args, diffusion_args, data_args, train_loop_args
 
-def _distributed_worker(rank, world_size, train_loop):
+def _distributed_worker(rank, world_size, model_args, diffusion_args, data_args, train_loop_args):
         os.environ["RANK"] = str(rank)
         os.environ["WORLD_SIZE"] = str(world_size)
         os.environ["LOCAL_RANK"] = str(rank)
@@ -445,10 +459,18 @@ def _distributed_worker(rank, world_size, train_loop):
         )
         
         th.cuda.set_device(rank)
-        logger.configure(dir=train_loop.log_dir, rank=rank)
+        logger.configure(dir=train_loop_args["log_dir"], rank=rank)
         
-        # Create a new TrainLoop for this process
-        worker_loop = create_train_loop(train_loop)
+        # Create a new TrainLoop for this process with the arguments
+        # Instead of passing the train_loop object directly
+        worker_loop = TrainLoop(
+            model=model_args["model"],
+            diffusion=diffusion_args["diffusion"],
+            data=data_args["data_fn"](),  # Call the function to get a fresh data iterator
+            val_data=data_args["val_data_fn"](),  # Call the function to get a fresh val data iterator
+            **train_loop_args
+        )
+        
         worker_loop.run_loop()
         dist.destroy_process_group()
         
@@ -494,10 +516,12 @@ def setup_dist_training(train_loop):
         os.environ["MASTER_ADDR"] = "localhost"
         os.environ["MASTER_PORT"] = "29500"
         
+        # Extract arguments from train_loop to avoid pickling issues with generators
+        model_args, diffusion_args, data_args, train_loop_args = extract_train_loop_args(train_loop)
         
         mp.spawn(
             _distributed_worker,
-            args=(n_gpus, train_loop,),
+            args=(n_gpus, model_args, diffusion_args, data_args, train_loop_args),
             nprocs=n_gpus,
             join=True
         )
