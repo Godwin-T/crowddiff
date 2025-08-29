@@ -716,8 +716,13 @@ class TrainLoop:
         
         for i in range(0, batch.shape[0], self.microbatch):
             micro = batch[i:i + self.microbatch].to(self.current_device)
+            # micro_cond = {
+            #     k: v[i:i + self.microbatch].to(self.current_device)
+            #     for k, v in cond.items()
+            # }
+            micro = batch[i:i + self.microbatch].to(self.current_device, dtype=th.float16)
             micro_cond = {
-                k: v[i:i + self.microbatch].to(self.current_device)
+                k: v[i:i + self.microbatch].to(self.current_device, dtype=th.float16)
                 for k, v in cond.items()
             }
             with th.amp.autocast(enabled=self.use_fp16, device_type="cuda"):
