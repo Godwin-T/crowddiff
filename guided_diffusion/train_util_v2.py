@@ -116,7 +116,7 @@ class TrainLoop:
             # Configure DDP model with appropriate settings for multi-GPU training
             if self.multi_gpu and th.cuda.device_count() > 1:
                 # Get local rank from environment or use default device
-                local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+                local_rank = self.rank
                 th.cuda.set_device(local_rank)
                 
                 self.ddp_model = DDP(
