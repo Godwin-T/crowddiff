@@ -289,16 +289,20 @@ class TrainLoop:
 
     def forward_backward(self, batch, cond):
         self.mp_trainer.zero_grad()
+        device = f"cuda:{self.rank}"
+        print("*"*50)
+        print(device)
+        print("*"*50)
         for i in range(0, batch.shape[0], self.microbatch):
-            micro = batch[i : i + self.microbatch].to(dist_util.dev())
+            micro = batch[i : i + self.microbatch].to(device)
             micro_cond = {
-                k: v[i : i + self.microbatch].to(dist_util.dev())
+                k: v[i : i + self.microbatch].to(device)
                 for k, v in cond.items()
             }
             scaler = th.amp.GradScaler()
             with th.amp.autocast(enabled=self.use_fp16, device_type=f"cuda:{self.rank}"):
                 last_batch = (i + self.microbatch) >= batch.shape[0]
-                t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
+                t, weights = self.schedule_sampler.sample(micro.shape[0], device)
 
                 compute_losses = functools.partial(
                     self.diffusion.training_losses,
