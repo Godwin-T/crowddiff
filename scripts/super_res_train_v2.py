@@ -66,12 +66,7 @@ def train_worker(rank, world_size, args):
     
     # Configure device and logger
     th.cuda.set_device(rank)
-    # logger.configure(dir=args.log_dir, rank=rank)
-    print("*"*50)
-    print("Device Ranks")
-    print(rank)
-    print("*"*50)
-    
+    # logger.configure(dir=args.log_dir, rank=rank)    
     run_training(args, rank)
     
     # Clean up process group
@@ -81,12 +76,12 @@ def run_training(args, rank):
     """Main training logic, separated to be called from either single or multi-GPU paths"""
 
     logger.log("creating model...")
-
+    current_device = th.device(f'cuda:{rank}')
     model, diffusion = sr_create_model_and_diffusion(
         **args_to_dict(args, sr_model_and_diffusion_defaults().keys())
     )
 
-    model.to(dist_util.dev())
+    model.to(current_device)
     if args.use_fp16:
       model.half()
     
