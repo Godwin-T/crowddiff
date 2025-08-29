@@ -97,6 +97,7 @@ class TrainLoop:
             self.mp_trainer.master_params, lr=self.lr, weight_decay=self.weight_decay
         )
         self.current_device = th.device(f'cuda:{self.rank}')
+        self.model.to(self.current_device)
         if self.resume_step:
             self._load_optimizer_state()
             # Model was resumed, either due to a restart or a checkpoint
