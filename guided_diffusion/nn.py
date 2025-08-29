@@ -14,16 +14,21 @@ class SiLU(nn.Module):
         return x * th.sigmoid(x)
 
 
+import torch.nn.functional as F
+
 class GroupNorm32(nn.GroupNorm):
     def forward(self, x):
-        # We perform the normalization in float32 for numerical stability
-        # The normalization itself is a sensitive operation.
-        # This prevents the mixed dtype error in the backward pass.
-        y = super().forward(x.float())
+        # We explicitly cast the input to float32 before normalization.
+        # This ensures the forward and backward passes for this layer are
+        # numerically stable and consistent, preventing dtype mismatches.
+        x_float32 = x.float()
 
-        # The output `y` is now float32. We cast it back to the original dtype
+        # The core group_norm function is now called with float32 input
+        y_float32 = F.group_norm(x_float32, self.num_groups, self.weight, self.bias, self.eps)
+
+        # The output y is now float32. We cast it back to the original dtype
         # so that subsequent layers (which may be in autocast) can proceed.
-        return y.type(x.dtype)
+        return y_float32.type(x.dtype)
 
 # class GroupNorm32(nn.GroupNorm):
 
