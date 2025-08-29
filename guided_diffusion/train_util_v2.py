@@ -553,16 +553,6 @@ class TrainLoop:
                     "Distributed training requires CUDA. Gradients will not be synchronized properly!"
                 )
         
-        # for name, param in self.model.named_parameters():
-        #     if param.device != th.device(f"cuda:{rank}"):
-        #         raise RuntimeError(f"Parameter '{name}' is not on device cuda:{rank}, but on {param.device}")
-        #     if self.use_fp16 and param.dtype != th.float16:
-        #         raise RuntimeError(f"Parameter '{name}' is of type {param.dtype}, not torch.float16")
-        # for name, buffer in self.model.named_buffers():
-        #     if buffer.device != th.device(f"cuda:{self.rank}"):
-        #         raise RuntimeError(f"Buffer '{name}' is not on device cuda:{self.rank}, but on {buffer.device}")
-        #     if self.use_fp16 and buffer.dtype != th.float16:
-        #         raise RuntimeError(f"Buffer '{name}' is of type {buffer.dtype}, not torch.float16")
         
         logger.log(f"Model parameters and buffers verified on device cuda:{rank}")
         # Load and sync parameters for resuming training
@@ -724,12 +714,12 @@ class TrainLoop:
             #     k: v[i:i + self.microbatch].to(self.current_device)
             #     for k, v in cond.items()
             # }
-            micro = batch[i:i + self.microbatch].to(self.current_device, dtype=th.float16)
+            micro = batch[i:i + self.microbatch].to(self.current_device, dtype=th.float32)
             micro_cond = {
-                k: v[i:i + self.microbatch].to(self.current_device, dtype=th.float16)
+                k: v[i:i + self.microbatch].to(self.current_device, dtype=th.float32)
                 for k, v in cond.items()
             }
-            self.ddp_model.module.half()
+            # self.ddp_model.module.half()
             # Debug: Check the data type of a convolution bias
             # for name, module in self.ddp_model.module.named_modules():
             #     if isinstance(module, th.nn.Conv1d) and module.bias is not None:
