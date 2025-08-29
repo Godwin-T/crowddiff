@@ -85,8 +85,8 @@ class TrainLoop:
         self._load_and_sync_parameters()
         self.mp_trainer = MixedPrecisionTrainer(
             model=self.model,
-            use_fp16=self.use_fp16,
-            fp16_scale_growth=fp16_scale_growth,
+            # use_fp16=self.use_fp16,
+            # fp16_scale_growth=fp16_scale_growth,
         )
 
         self.opt = AdamW(
