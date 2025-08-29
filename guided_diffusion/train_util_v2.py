@@ -17,6 +17,7 @@ from . import dist_util, logger
 from .fp16_util import MixedPrecisionTrainer
 from .nn import update_ema
 from .resample import LossAwareSampler, UniformSampler
+from torch.cuda.amp import autocast, GradScaler
 
 # For ImageNet experiments, this was a good default value.
 # We found that the lg_loss_scale quickly climbed to
@@ -85,7 +86,7 @@ class TrainLoop:
         self._load_and_sync_parameters()
         self.mp_trainer = MixedPrecisionTrainer(
             model=self.model,
-            use_fp16=self.use_fp16,
+            # use_fp16=self.use_fp16,
             # fp16_scale_growth=fp16_scale_growth,
         )
 
@@ -291,33 +292,35 @@ class TrainLoop:
                 k: v[i : i + self.microbatch].to(dist_util.dev())
                 for k, v in cond.items()
             }
-            last_batch = (i + self.microbatch) >= batch.shape[0]
-            t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
+            scaler = th.amp.GradScaler()
+            with th.amp.autocast(enabled=self.use_fp16):
+                last_batch = (i + self.microbatch) >= batch.shape[0]
+                t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
 
-            compute_losses = functools.partial(
-                self.diffusion.training_losses,
-                self.ddp_model,
-                micro,
-                t,
-                model_kwargs=micro_cond,
-            )
-
-            if last_batch or not self.use_ddp:
-                losses = compute_losses()
-            else:
-                with self.ddp_model.no_sync():
-                    losses = compute_losses()
-
-            if isinstance(self.schedule_sampler, LossAwareSampler):
-                self.schedule_sampler.update_with_local_losses(
-                    t, losses["loss"].detach()
+                compute_losses = functools.partial(
+                    self.diffusion.training_losses,
+                    self.ddp_model,
+                    micro,
+                    t,
+                    model_kwargs=micro_cond,
                 )
 
-            loss = (losses["loss"] * weights).mean()
-            log_loss_dict(
-                self.diffusion, t, {k: v * weights for k, v in losses.items()}
-            )
-            self.mp_trainer.backward(loss)
+                if last_batch or not self.use_ddp:
+                    losses = compute_losses()
+                else:
+                    with self.ddp_model.no_sync():
+                        losses = compute_losses()
+
+                if isinstance(self.schedule_sampler, LossAwareSampler):
+                    self.schedule_sampler.update_with_local_losses(
+                        t, losses["loss"].detach()
+                    )
+
+                loss = (losses["loss"] * weights).mean()
+                log_loss_dict(
+                    self.diffusion, t, {k: v * weights for k, v in losses.items()}
+                )
+            self.mp_trainer.backward(scaler.scale(loss))
 
     def _update_ema(self):
         for rate, params in zip(self.ema_rate, self.ema_params):
