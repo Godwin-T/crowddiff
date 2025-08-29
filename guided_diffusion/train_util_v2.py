@@ -541,8 +541,8 @@ def setup_dist_training(train_loop):
         from guided_diffusion.image_datasets import load_data
         
         # Get data directory and other parameters needed to recreate data loaders
-        data_dir = os.environ.get("DATA_DIR", "")
-        val_data_dir = os.environ.get("VAL_DATA_DIR", "")
+        data_dir =train_loop.data
+        val_data_dir = train_loop.val_data
         batch_size = train_loop.batch_size
         val_batch_size = 1  # Default value, adjust if needed
         large_size = int(os.environ.get("LARGE_SIZE", "256"))

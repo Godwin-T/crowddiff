@@ -38,23 +38,24 @@ from guided_diffusion.script_util import (
 from guided_diffusion.train_util_v2 import TrainLoop, setup_dist_training
 
 
-# def main():
+def main():
     
     
-#     if args.multi_gpu:
-#         # Use all available GPUs
-#         n_gpus = th.cuda.device_count()
-#         if n_gpus > 1:
-#             print(f"Using {n_gpus} GPUs for distributed training")
-#             mp.spawn(train_worker, args=(n_gpus, args), nprocs=n_gpus, join=True)
-#         else:
-#             print("Only one GPU available, running in single GPU mode")
-#             train_worker(0, 1, args)
-#     else:
-#         # Original single GPU code path
-#         dist_util.setup_dist()
-#         logger.configure(dir=args.log_dir)#, format_strs=['stdout', 'wandb'])
-#         run_training(args)
+    args = create_argparser().parse_args()
+    if args.multi_gpu:
+        # Use all available GPUs
+        n_gpus = th.cuda.device_count()
+        if n_gpus > 1:
+            print(f"Using {n_gpus} GPUs for distributed training")
+            mp.spawn(train_worker, args=(n_gpus, args), nprocs=n_gpus, join=True)
+        else:
+            print("Only one GPU available, running in single GPU mode")
+            train_worker(0, 1, args)
+    else:
+        # Original single GPU code path
+        dist_util.setup_dist()
+        logger.configure(dir=args.log_dir)#, format_strs=['stdout', 'wandb'])
+        run_training(args)
 
 def train_worker(rank, world_size, args):
     """Per-process training function for multi-GPU training"""
@@ -115,7 +116,7 @@ def run_training(args):
     val_data = load_data_for_worker(args)
 
     logger.log("training...")
-    training_loop = TrainLoop(
+    TrainLoop(
         model=model,
         diffusion=diffusion,
         data=data,
@@ -137,7 +138,7 @@ def run_training(args):
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
     )
-    setup_dist_training(train_loop=training_loop)
+    # setup_dist_training(train_loop=training_loop)
 
 
 def load_superres_data(data_dir, batch_size, large_size, small_size, normalizer, pred_channels, class_cond=False):
@@ -253,6 +254,5 @@ def create_argparser():
 
 
 if __name__ == "__main__":
-    args = create_argparser().parse_args()
-    run_training(args)
-    # main()
+    # run_training(args)
+    main()
