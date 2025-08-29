@@ -35,7 +35,7 @@ from guided_diffusion.script_util import (
     args_to_dict,
     add_dict_to_argparser,
 )
-from guided_diffusion.train_util_v2 import TrainLoop, setup_dist_training
+from guided_diffusion.train_util_v2 import TrainLoop #, setup_dist_training
 
 
 def main():
