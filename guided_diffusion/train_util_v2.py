@@ -757,11 +757,24 @@ class TrainLoop:
             self.scaler.scale(loss).backward()
 
 
+    # def _update_ema(self):
+    #     for rate, params in zip(self.ema_rate, self.ema_params):
+    #         with th.no_grad():
+    #             for param, ema_param in zip(self.model.parameters(), params):
+    #                 ema_param.copy_(param.detach().lerp(ema_param, rate))
+
     def _update_ema(self):
-        for rate, params in zip(self.ema_rate, self.ema_params):
-            with th.no_grad():
-                for param, ema_param in zip(self.model.parameters(), params):
-                    ema_param.copy_(param.detach().lerp(ema_param, rate))
+        """
+        Updates the EMA model parameters using an exponential moving average.
+        """
+        for param, ema_param in zip(self.model.parameters(), self.ema_model.parameters()):
+            # Ensure both tensors are on the same device before the operation
+            if param.device != ema_param.device:
+                # Forcing ema_param to the same device as param
+                ema_param.data = ema_param.data.to(param.device)
+
+            # The rest of the update is the same
+            ema_param.copy_(param.detach().lerp(ema_param, self.ema_rate))
 
     def _anneal_lr(self):
         if not self.lr_anneal_steps:
