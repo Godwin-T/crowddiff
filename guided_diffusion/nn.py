@@ -15,19 +15,30 @@ class SiLU(nn.Module):
 
 
 class GroupNorm32(nn.GroupNorm):
-
-    # pass
-    # def forward(self, x):
-    #     return super().forward(x )#.float()).type(x.dtype)
     def forward(self, x):
-        # Check if autocast is enabled before forcing a cast
-        if th.is_autocast_enabled():
-            return super().forward(x)
-        else:
-            print(f"GroupNorm input device: {x.device}")
-            print(f"GroupNorm weight device: {self.weight.device}")
-            print(f"GroupNorm bias device: {self.bias.device}")
-            return super().forward(x.float()).type(x.dtype)
+        # We perform the normalization in float32 for numerical stability
+        # The normalization itself is a sensitive operation.
+        # This prevents the mixed dtype error in the backward pass.
+        y = super().forward(x.float())
+
+        # The output `y` is now float32. We cast it back to the original dtype
+        # so that subsequent layers (which may be in autocast) can proceed.
+        return y.type(x.dtype)
+
+# class GroupNorm32(nn.GroupNorm):
+
+#     # pass
+#     # def forward(self, x):
+#     #     return super().forward(x )#.float()).type(x.dtype)
+#     def forward(self, x):
+#         # Check if autocast is enabled before forcing a cast
+#         if th.is_autocast_enabled():
+#             return super().forward(x)
+#         else:
+#             print(f"GroupNorm input device: {x.device}")
+#             print(f"GroupNorm weight device: {self.weight.device}")
+#             print(f"GroupNorm bias device: {self.bias.device}")
+#             return super().forward(x.float()).type(x.dtype)
 
 
 def conv_nd(dims, *args, **kwargs):
