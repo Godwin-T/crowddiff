@@ -372,7 +372,7 @@ class TrainLoop:
                             for k, v in zip(self.model.state_dict().keys(), params)
                         }
                     }
-                logger.log(f"saving model to {get_blob_logdir()/{filename}}")
+                logger.log(f"saving model to {get_blob_logdir()}/{filename}")
                 with bf.BlobFile(bf.join(get_blob_logdir(), filename), "wb") as f:
                     th.save(state_dict, f)
                 logger.log(f"Model successfully saved to {filename}...")
