@@ -729,9 +729,6 @@ class TrainLoop:
                 k: v[i:i + self.microbatch].to(self.current_device, dtype=th.float16)
                 for k, v in cond.items()
             }
-            for name, param in self.ddp_model.named_parameters():
-                if param.requires_grad:
-                    print(f"Trainable param '{name}' dtype: {param.dtype}")
 
             with th.amp.autocast(enabled=self.use_fp16, device_type="cuda"):
                 last_batch = (i + self.microbatch) >= batch.shape[0]
