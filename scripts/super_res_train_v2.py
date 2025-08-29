@@ -137,7 +137,7 @@ def run_training(args):
         schedule_sampler=schedule_sampler,
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
-    )
+    ).run_loop()
     # setup_dist_training(train_loop=training_loop)
 
 
