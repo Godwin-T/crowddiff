@@ -340,7 +340,7 @@ class GaussianDiffusion:
             "log_variance": model_log_variance,
             "pred_xstart": pred_xstart,
             "count": count_output,
-            "feats": feats,
+            # "feats": feats,
         }
 
     def _predict_xstart_from_eps(self, x_t, t, eps):
