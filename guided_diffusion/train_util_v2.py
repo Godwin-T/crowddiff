@@ -731,9 +731,9 @@ class TrainLoop:
             }
             self.ddp_model.module.half()
             # Debug: Check the data type of a convolution bias
-            for name, module in self.ddp_model.module.named_modules():
-                if isinstance(module, th.nn.Conv1d) and module.bias is not None:
-                    print(f"Bias dtype of '{name}': {module.bias.dtype}")
+            # for name, module in self.ddp_model.module.named_modules():
+            #     if isinstance(module, th.nn.Conv1d) and module.bias is not None:
+            #         print(f"Bias dtype of '{name}': {module.bias.dtype}")
             with th.amp.autocast(enabled=self.use_fp16, device_type="cuda"):
                 last_batch = (i + self.microbatch) >= batch.shape[0]
                 t, weights = self.schedule_sampler.sample(micro.shape[0], self.current_device)
