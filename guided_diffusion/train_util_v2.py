@@ -96,7 +96,7 @@ class TrainLoop:
         self.opt = AdamW(
             self.mp_trainer.master_params, lr=self.lr, weight_decay=self.weight_decay
         )
-        
+        self.current_device = th.device(f'cuda:{self.rank}')
         if self.resume_step:
             self._load_optimizer_state()
             # Model was resumed, either due to a restart or a checkpoint
@@ -290,19 +290,18 @@ class TrainLoop:
 
     def forward_backward(self, batch, cond):
         self.mp_trainer.zero_grad()
-        current_device = th.device(f'cuda:{self.rank}')
         print("*"*50)
-        print(current_device)
+        print(self.current_device)
         print("*"*50)
         for i in range(0, batch.shape[0], self.microbatch):
-            micro = batch[i : i + self.microbatch].to(current_device)
+            micro = batch[i : i + self.microbatch].to(self.current_device)
             micro_cond = {
-                k: v[i : i + self.microbatch].to(current_device)
+                k: v[i : i + self.microbatch].to(self.current_device)
                 for k, v in cond.items()
             }
             with th.amp.autocast(enabled=self.use_fp16, device_type="cuda"):
                 last_batch = (i + self.microbatch) >= batch.shape[0]
-                t, weights = self.schedule_sampler.sample(micro.shape[0], current_device)
+                t, weights = self.schedule_sampler.sample(micro.shape[0], self.current_device)
 
                 compute_losses = functools.partial(
                     self.diffusion.training_losses,
@@ -312,8 +311,8 @@ class TrainLoop:
                     model_kwargs=micro_cond,
                 )
                 print("*"*100)
-                if last_batch and not self.use_ddp:
-                    print("Condition True")
+                # if last_batch and not self.use_ddp:
+                #     print("Condition True")
                 if last_batch and not self.use_ddp:
                     losses = compute_losses()
                 else:
