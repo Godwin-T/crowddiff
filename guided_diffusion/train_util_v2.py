@@ -762,9 +762,9 @@ class TrainLoop:
                     self.diffusion, t, {k: v * weights for k, v in losses.items()}
                 )
 
+            print(f"Loss dtype before backward: {loss.dtype}")
             # Use scaler for backward pass
             self.scaler.scale(loss).backward()
-            # self.scaler.scale(loss / num_microbatches).backward()
 
 
     def _update_ema(self):
