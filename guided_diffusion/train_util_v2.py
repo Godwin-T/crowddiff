@@ -541,7 +541,7 @@ class TrainLoop:
                 find_unused_parameters=False,
             )
             if self.use_fp16:
-                self.ddp_model.convert_to_fp16() 
+                self.ddp_model.module.half() 
             logger.log(f"Using GPU {self.rank} with DDP, {th.cuda.device_count()} GPUs available")
         else:
             self.use_ddp = False
