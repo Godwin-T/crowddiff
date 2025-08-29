@@ -712,6 +712,8 @@ class TrainLoop:
         self.log_step()
 
     def forward_backward(self, batch, cond):
+        num_microbatches = len(range(0, batch.shape[0], self.microbatch))
+        
         for i in range(0, batch.shape[0], self.microbatch):
             micro = batch[i:i + self.microbatch].to(self.current_device)
             micro_cond = {
@@ -747,7 +749,9 @@ class TrainLoop:
                 )
 
             # Use scaler for backward pass
-            self.scaler.scale(loss).backward()
+            # self.scaler.scale(loss).backward()
+            self.scaler.scale(loss / num_microbatches).backward()
+
 
     def _update_ema(self):
         for rate, params in zip(self.ema_rate, self.ema_params):
