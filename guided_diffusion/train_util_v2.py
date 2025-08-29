@@ -300,7 +300,7 @@ class TrainLoop:
                 k: v[i : i + self.microbatch].to(current_device)
                 for k, v in cond.items()
             }
-            with th.amp.autocast(enabled=self.use_fp16, device_type=current_device):
+            with th.amp.autocast(enabled=self.use_fp16, device_type="cuda"):
                 last_batch = (i + self.microbatch) >= batch.shape[0]
                 t, weights = self.schedule_sampler.sample(micro.shape[0], current_device)
 
