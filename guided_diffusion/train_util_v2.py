@@ -50,6 +50,7 @@ class TrainLoop:
         weight_decay=0.0,
         lr_anneal_steps=0,
         multi_gpu=True,
+        rank: str = None
     ):
         self.model = model
         self.diffusion = diffusion
@@ -76,6 +77,7 @@ class TrainLoop:
         self.weight_decay = weight_decay
         self.lr_anneal_steps = lr_anneal_steps
         self.multi_gpu = multi_gpu
+        self.rank = rank
 
         self.step = 0
         self.resume_step = 0
@@ -93,6 +95,7 @@ class TrainLoop:
         self.opt = AdamW(
             self.mp_trainer.master_params, lr=self.lr, weight_decay=self.weight_decay
         )
+        
         if self.resume_step:
             self._load_optimizer_state()
             # Model was resumed, either due to a restart or a checkpoint
@@ -293,7 +296,7 @@ class TrainLoop:
                 for k, v in cond.items()
             }
             scaler = th.amp.GradScaler()
-            with th.amp.autocast(enabled=self.use_fp16, device_type="cuda"):
+            with th.amp.autocast(enabled=self.use_fp16, device_type=f"cuda:{self.rank}"):
                 last_batch = (i + self.microbatch) >= batch.shape[0]
                 t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
 

@@ -68,12 +68,12 @@ def train_worker(rank, world_size, args):
     th.cuda.set_device(rank)
     # logger.configure(dir=args.log_dir, rank=rank)
     
-    run_training(args)
+    run_training(args, rank)
     
     # Clean up process group
     dist.destroy_process_group()
 
-def run_training(args):
+def run_training(args, rank):
     """Main training logic, separated to be called from either single or multi-GPU paths"""
 
     logger.log("creating model...")
@@ -137,6 +137,7 @@ def run_training(args):
         schedule_sampler=schedule_sampler,
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
+        rank=rank
     ).run_loop()
     # setup_dist_training(train_loop=training_loop)
 
