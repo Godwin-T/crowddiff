@@ -532,18 +532,6 @@ class TrainLoop:
             print("Making use of GPTY")
             self.use_ddp = True
             th.cuda.set_device(self.current_device)
-            for name, param in self.model.named_parameters():
-                if param.device != th.device(f"cuda:{rank}"):
-                    raise RuntimeError(f"Parameter '{name}' is not on device cuda:{rank}, but on {param.device}")
-                if self.use_fp16 and param.dtype != th.float16:
-                    raise RuntimeError(f"Parameter '{name}' is of type {param.dtype}, not torch.float16")
-            for name, buffer in self.model.named_buffers():
-                if buffer.device != th.device(f"cuda:{self.rank}"):
-                    raise RuntimeError(f"Buffer '{name}' is not on device cuda:{self.rank}, but on {buffer.device}")
-                if self.use_fp16 and buffer.dtype != th.float16:
-                    raise RuntimeError(f"Buffer '{name}' is of type {buffer.dtype}, not torch.float16")
-            
-            logger.log(f"Model parameters and buffers verified on device cuda:{rank}")
             self.ddp_model = DDP(
                 self.model,
                 device_ids=[self.current_device],
@@ -561,6 +549,18 @@ class TrainLoop:
                     "Distributed training requires CUDA. Gradients will not be synchronized properly!"
                 )
         
+        for name, param in self.model.named_parameters():
+            if param.device != th.device(f"cuda:{rank}"):
+                raise RuntimeError(f"Parameter '{name}' is not on device cuda:{rank}, but on {param.device}")
+            if self.use_fp16 and param.dtype != th.float16:
+                raise RuntimeError(f"Parameter '{name}' is of type {param.dtype}, not torch.float16")
+        for name, buffer in self.model.named_buffers():
+            if buffer.device != th.device(f"cuda:{self.rank}"):
+                raise RuntimeError(f"Buffer '{name}' is not on device cuda:{self.rank}, but on {buffer.device}")
+            if self.use_fp16 and buffer.dtype != th.float16:
+                raise RuntimeError(f"Buffer '{name}' is of type {buffer.dtype}, not torch.float16")
+        
+        logger.log(f"Model parameters and buffers verified on device cuda:{rank}")
         # Load and sync parameters for resuming training
         self._load_and_sync_parameters()
 
