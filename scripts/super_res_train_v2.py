@@ -67,6 +67,9 @@ def train_worker(rank, world_size, args):
     # Configure device and logger
     th.cuda.set_device(rank)
     # logger.configure(dir=args.log_dir, rank=rank)
+    print("*"*50)
+    print(rank)
+    print("*"*50)
     
     run_training(args, rank)
     
