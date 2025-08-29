@@ -265,9 +265,6 @@ class GaussianDiffusion:
         B, C = x.shape[:2]
         assert t.shape == (B,)
         model_output = model(x, self._scale_timesteps(t), **model_kwargs)
-        print("="*100)
-        print("Model Output")
-        print(model_output)
 
         count_output = None
         if isinstance(model_output, dict):

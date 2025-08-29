@@ -440,7 +440,7 @@ from torch.optim import AdamW
 from . import dist_util, logger
 from .nn import update_ema
 from .resample import LossAwareSampler, UniformSampler
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 
 # For ImageNet experiments, this was a good default value.
 # We found that the lg_loss_scale quickly climbed to
@@ -540,7 +540,8 @@ class TrainLoop:
                     raise RuntimeError(f"Buffer '{name}' is not on device cuda:{self.rank}, but on {buffer.device}")
                 if self.use_fp16 and buffer.dtype != th.float16:
                     raise RuntimeError(f"Buffer '{name}' is of type {buffer.dtype}, not torch.float16")
-                        
+            
+            logger.log(f"Model parameters and buffers verified on device cuda:{rank}")
             self.ddp_model = DDP(
                 self.model,
                 device_ids=[self.current_device],
