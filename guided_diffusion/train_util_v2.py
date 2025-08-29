@@ -535,7 +535,12 @@ class TrainLoop:
                     raise RuntimeError(f"Parameter '{name}' is not on device cuda:{rank}, but on {param.device}")
                 if self.use_fp16 and param.dtype != th.float16:
                     raise RuntimeError(f"Parameter '{name}' is of type {param.dtype}, not torch.float16")
-                
+            for name, buffer in self.model.named_buffers():
+                if buffer.device != th.device(f"cuda:{self.rank}"):
+                    raise RuntimeError(f"Buffer '{name}' is not on device cuda:{self.rank}, but on {buffer.device}")
+                if self.use_fp16 and buffer.dtype != th.float16:
+                    raise RuntimeError(f"Buffer '{name}' is of type {buffer.dtype}, not torch.float16")
+                        
             self.ddp_model = DDP(
                 self.model,
                 device_ids=[self.current_device],
