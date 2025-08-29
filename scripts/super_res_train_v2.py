@@ -66,7 +66,7 @@ def train_worker(rank, world_size, args):
     
     # Configure device and logger
     th.cuda.set_device(rank)
-    logger.configure(dir=args.log_dir, rank=rank)    
+    logger.configure(dir=args.log_dir)    
     run_training(args, rank)
     
     # Clean up process group
