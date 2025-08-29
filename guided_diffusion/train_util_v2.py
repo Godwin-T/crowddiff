@@ -406,7 +406,52 @@ def log_loss_dict(diffusion, ts, losses):
             quartile = int(4 * sub_t / diffusion.num_timesteps)
             logger.logkv_mean(f"{key}_q{quartile}", sub_loss)
 
+def create_train_loop(train_loop):
+            # Create a new instance with the same parameters
+    return TrainLoop(
+        model=train_loop.model.__class__(),  # Create new model instance
+        diffusion=train_loop.diffusion,
+        data=train_loop.data,
+        val_data=train_loop.val_data,
+        normalizer=train_loop.normalizer,
+        pred_channels=train_loop.pred_channels,
+        base_samples=train_loop.base_samples,
+        batch_size=train_loop.batch_size,
+        microbatch=train_loop.microbatch,
+        lr=train_loop.lr,
+        ema_rate=train_loop.ema_rate,
+        log_dir=train_loop.log_dir,
+        log_interval=train_loop.log_interval,
+        save_interval=train_loop.save_interval,
+        resume_checkpoint=train_loop.resume_checkpoint,
+        use_fp16=train_loop.use_fp16,
+        fp16_scale_growth=train_loop.fp16_scale_growth,
+        schedule_sampler=train_loop.schedule_sampler,
+        weight_decay=train_loop.weight_decay,
+        lr_anneal_steps=train_loop.lr_anneal_steps,
+        multi_gpu=True,
+    )
 
+def _distributed_worker(rank, world_size, train_loop):
+        os.environ["RANK"] = str(rank)
+        os.environ["WORLD_SIZE"] = str(world_size)
+        os.environ["LOCAL_RANK"] = str(rank)
+        
+        dist.init_process_group(
+            backend="nccl",
+            init_method="env://",
+            world_size=world_size,
+            rank=rank
+        )
+        
+        th.cuda.set_device(rank)
+        logger.configure(dir=train_loop.log_dir, rank=rank)
+        
+        # Create a new TrainLoop for this process
+        worker_loop = create_train_loop(train_loop)
+        worker_loop.run_loop()
+        dist.destroy_process_group()
+        
 def setup_dist_training(train_loop):
     """
     Set up and launch distributed training across multiple GPUs.
@@ -449,56 +494,10 @@ def setup_dist_training(train_loop):
         os.environ["MASTER_ADDR"] = "localhost"
         os.environ["MASTER_PORT"] = "29500"
         
-        # Create a function to recreate the TrainLoop in each worker process
-        def create_train_loop():
-            # Create a new instance with the same parameters
-            return TrainLoop(
-                model=train_loop.model.__class__(),  # Create new model instance
-                diffusion=train_loop.diffusion,
-                data=train_loop.data,
-                val_data=train_loop.val_data,
-                normalizer=train_loop.normalizer,
-                pred_channels=train_loop.pred_channels,
-                base_samples=train_loop.base_samples,
-                batch_size=train_loop.batch_size,
-                microbatch=train_loop.microbatch,
-                lr=train_loop.lr,
-                ema_rate=train_loop.ema_rate,
-                log_dir=train_loop.log_dir,
-                log_interval=train_loop.log_interval,
-                save_interval=train_loop.save_interval,
-                resume_checkpoint=train_loop.resume_checkpoint,
-                use_fp16=train_loop.use_fp16,
-                fp16_scale_growth=train_loop.fp16_scale_growth,
-                schedule_sampler=train_loop.schedule_sampler,
-                weight_decay=train_loop.weight_decay,
-                lr_anneal_steps=train_loop.lr_anneal_steps,
-                multi_gpu=True,
-            )
-        
-        def _distributed_worker(rank, world_size):
-            os.environ["RANK"] = str(rank)
-            os.environ["WORLD_SIZE"] = str(world_size)
-            os.environ["LOCAL_RANK"] = str(rank)
-            
-            dist.init_process_group(
-                backend="nccl",
-                init_method="env://",
-                world_size=world_size,
-                rank=rank
-            )
-            
-            th.cuda.set_device(rank)
-            logger.configure(dir=train_loop.log_dir, rank=rank)
-            
-            # Create a new TrainLoop for this process
-            worker_loop = create_train_loop()
-            worker_loop.run_loop()
-            dist.destroy_process_group()
         
         mp.spawn(
             _distributed_worker,
-            args=(n_gpus,),
+            args=(n_gpus, train_loop,),
             nprocs=n_gpus,
             join=True
         )
