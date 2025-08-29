@@ -417,12 +417,6 @@ def extract_train_loop_args(train_loop):
         "diffusion": train_loop.diffusion,
     }
     
-    # Extract data loaders as functions that create fresh iterators
-    data_args = {
-        "data_fn": lambda: train_loop.data,
-        "val_data_fn": lambda: train_loop.val_data,
-    }
-    
     # Extract all other arguments
     train_loop_args = {
         "normalizer": train_loop.normalizer,
@@ -444,9 +438,10 @@ def extract_train_loop_args(train_loop):
         "multi_gpu": True,
     }
     
-    return model_args, diffusion_args, data_args, train_loop_args
+    return model_args, diffusion_args, train_loop_args
 
-def _distributed_worker(rank, world_size, model_args, diffusion_args, data_args, train_loop_args):
+def _distributed_worker(rank, world_size, model_args, diffusion_args, train_loop_args, data_dir, val_data_dir, 
+                        batch_size, val_batch_size, large_size, small_size, class_cond):
         os.environ["RANK"] = str(rank)
         os.environ["WORLD_SIZE"] = str(world_size)
         os.environ["LOCAL_RANK"] = str(rank)
@@ -461,13 +456,35 @@ def _distributed_worker(rank, world_size, model_args, diffusion_args, data_args,
         th.cuda.set_device(rank)
         logger.configure(dir=train_loop_args["log_dir"], rank=rank)
         
+        # Create fresh data loaders in this process
+        from guided_diffusion.image_datasets import load_data
+        
+        logger.log("creating data loader in worker process...")
+        # data = load_data(
+        #     data_dir=data_dir,
+        #     batch_size=batch_size,
+        #     image_size=large_size,
+        #     class_cond=class_cond,
+        #     is_val=False,
+        # )
+        
+        logger.log("creating validation data loader in worker process...")
+        # val_data = load_data(
+        #     data_dir=val_data_dir if val_data_dir else data_dir,
+        #     batch_size=val_batch_size,
+        #     image_size=large_size,
+        #     class_cond=class_cond,
+        #     is_val=True,
+        # )
+        data = data_dir
+        val_data = val_data_dir
+        
         # Create a new TrainLoop for this process with the arguments
-        # Instead of passing the train_loop object directly
         worker_loop = TrainLoop(
             model=model_args["model"],
             diffusion=diffusion_args["diffusion"],
-            data=data_args["data_fn"](),  # Call the function to get a fresh data iterator
-            val_data=data_args["val_data_fn"](),  # Call the function to get a fresh val data iterator
+            data=data,
+            val_data=val_data,
             **train_loop_args
         )
         
@@ -517,11 +534,26 @@ def setup_dist_training(train_loop):
         os.environ["MASTER_PORT"] = "29500"
         
         # Extract arguments from train_loop to avoid pickling issues with generators
-        model_args, diffusion_args, data_args, train_loop_args = extract_train_loop_args(train_loop)
+        model_args, diffusion_args, train_loop_args = extract_train_loop_args(train_loop)
+        
+        # Get data parameters from super_res_train_distributed.py
+        # These will be used to recreate data loaders in each worker process
+        from guided_diffusion.image_datasets import load_data
+        
+        # Get data directory and other parameters needed to recreate data loaders
+        data_dir = os.environ.get("DATA_DIR", "")
+        val_data_dir = os.environ.get("VAL_DATA_DIR", "")
+        batch_size = train_loop.batch_size
+        val_batch_size = 1  # Default value, adjust if needed
+        large_size = int(os.environ.get("LARGE_SIZE", "256"))
+        small_size = int(os.environ.get("SMALL_SIZE", "64"))
+        class_cond = bool(int(os.environ.get("CLASS_COND", "0")))
         
         mp.spawn(
             _distributed_worker,
-            args=(n_gpus, model_args, diffusion_args, data_args, train_loop_args),
+            args=(n_gpus, model_args, diffusion_args, train_loop_args, 
+                  data_dir, val_data_dir, batch_size, val_batch_size, 
+                  large_size, small_size, class_cond),
             nprocs=n_gpus,
             join=True
         )
