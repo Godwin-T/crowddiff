@@ -374,6 +374,7 @@ class TrainLoop:
                     }
                 with bf.BlobFile(bf.join(get_blob_logdir(), filename), "wb") as f:
                     th.save(state_dict, f)
+                logger.log(f"Model successfully saved to {filename}...")
 
         save_checkpoint(0, None)
         for rate, params in zip(self.ema_rate, self.ema_params):
