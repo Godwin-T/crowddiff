@@ -528,6 +528,8 @@ class TrainLoop:
 
         # Handle distributed data parallel setup
         if self.multi_gpu and th.cuda.is_available() and th.cuda.device_count() > 1:
+            print("*"*100)
+            print("Making use of GPTY")
             self.use_ddp = True
             th.cuda.set_device(self.current_device)
             for name, param in self.model.named_parameters():
