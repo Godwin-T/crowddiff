@@ -21,6 +21,9 @@ class GroupNorm32(nn.GroupNorm):
     #     return super().forward(x )#.float()).type(x.dtype)
     def forward(self, x):
         # Check if autocast is enabled before forcing a cast
+        print(f"GroupNorm input device: {x.device}")
+        print(f"GroupNorm weight device: {self.weight.device}")
+        print(f"GroupNorm bias device: {self.bias.device}")
         if th.is_autocast_enabled():
             return super().forward(x)
         else:
