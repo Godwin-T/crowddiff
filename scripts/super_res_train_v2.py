@@ -82,14 +82,6 @@ def run_training(args, rank):
     )
 
     model.to(current_device)
-    if args.use_fp16:
-      model.half()
-    for name, param in model.named_parameters():
-        if param.device != th.device(f"cuda:{rank}"):
-            raise RuntimeError(f"Parameter '{name}' is not on device cuda:{rank}, but on {param.device}")
-        if args.use_fp16 and param.dtype != th.float16:
-            raise RuntimeError(f"Parameter '{name}' is of type {param.dtype}, not torch.float16")
-
     
     # Wrap model with DistributedDataParallel for multi-GPU training
     # if dist.is_initialized() and dist.get_world_size() > 1:

@@ -518,8 +518,8 @@ class TrainLoop:
 
         # Move model to the correct device and convert to half-precision if enabled
         self.model.to(self.current_device)
-        if self.use_fp16:
-            self.model.half()
+        # if self.use_fp16:
+        #     self.model.half()
 
         # Create optimizer after moving the model to the device and converting its dtype
         self.opt = AdamW(
