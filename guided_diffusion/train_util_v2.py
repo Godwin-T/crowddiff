@@ -293,7 +293,7 @@ class TrainLoop:
                 for k, v in cond.items()
             }
             scaler = th.amp.GradScaler()
-            with th.amp.autocast(enabled=self.use_fp16):
+            with th.amp.autocast(enabled=self.use_fp16, device_type="cuda"):
                 last_batch = (i + self.microbatch) >= batch.shape[0]
                 t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
 
