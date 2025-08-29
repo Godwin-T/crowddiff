@@ -542,6 +542,10 @@ class TrainLoop:
             )
             if self.use_fp16:
                 self.ddp_model.module.half() 
+                # Ensure trainable parameters are in float32 for the GradScaler
+                for param in self.ddp_model.parameters():
+                    if param.requires_grad:
+                        param.data = param.data.float()
             logger.log(f"Using GPU {self.rank} with DDP, {th.cuda.device_count()} GPUs available")
         else:
             self.use_ddp = False
