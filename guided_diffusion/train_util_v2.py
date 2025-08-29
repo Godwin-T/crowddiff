@@ -94,7 +94,7 @@ class TrainLoop:
         )
 
         self.opt = AdamW(
-            self.mp_trainer.master_params, lr=self.lr, weight_decay=self.weight_decay
+            self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
         self.current_device = th.device(f'cuda:{self.rank}')
         self.model.to(self.current_device)
@@ -107,7 +107,7 @@ class TrainLoop:
             ]
         else:
             self.ema_params = [
-                copy.deepcopy(self.mp_trainer.master_params)
+                copy.deepcopy(self.model.parameters())
                 for _ in range(len(self.ema_rate))
             ]
 
@@ -171,7 +171,7 @@ class TrainLoop:
         dist_util.sync_params(self.model.parameters())
 
     def _load_ema_parameters(self, rate):
-        ema_params = copy.deepcopy(self.mp_trainer.master_params)
+        ema_params = copy.deepcopy(self.model.parameters())
 
         main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
         ema_checkpoint = find_ema_checkpoint(main_checkpoint, self.resume_step, rate)
@@ -181,7 +181,7 @@ class TrainLoop:
                 state_dict = dist_util.load_state_dict(
                     ema_checkpoint, map_location=dist_util.dev()
                 )
-                ema_params = self.mp_trainer.state_dict_to_master_params(state_dict)
+                ema_params = self.model.state_dict()
 
         dist_util.sync_params(ema_params)
         return ema_params
@@ -283,14 +283,14 @@ class TrainLoop:
 
     def run_step(self, batch, cond):
         self.forward_backward(batch, cond)
-        took_step = self.mp_trainer.optimize(self.opt)
+        took_step = self.model.optimize(self.opt)
         if took_step:
             self._update_ema()
         self._anneal_lr()
         self.log_step()
 
     def forward_backward(self, batch, cond):
-        self.mp_trainer.zero_grad()
+        self.model.zero_grad()
         print("*"*50)
         print(self.current_device)
         print("*"*50)
@@ -334,7 +334,7 @@ class TrainLoop:
 
     def _update_ema(self):
         for rate, params in zip(self.ema_rate, self.ema_params):
-            update_ema(params, self.mp_trainer.master_params, rate=rate)
+            update_ema(params, self.model.parameters(), rate=rate)
 
     def _anneal_lr(self):
         if not self.lr_anneal_steps:
