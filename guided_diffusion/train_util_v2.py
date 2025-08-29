@@ -84,6 +84,7 @@ class TrainLoop:
         self.global_batch = self.batch_size * dist.get_world_size()
 
         self.sync_cuda = th.cuda.is_available()
+        self.scaler = th.amp.GradScaler()
 
         self._load_and_sync_parameters()
         self.mp_trainer = MixedPrecisionTrainer(
@@ -299,7 +300,6 @@ class TrainLoop:
                 k: v[i : i + self.microbatch].to(device)
                 for k, v in cond.items()
             }
-            scaler = th.amp.GradScaler()
             with th.amp.autocast(enabled=self.use_fp16, device_type=f"cuda:{self.rank}"):
                 last_batch = (i + self.microbatch) >= batch.shape[0]
                 t, weights = self.schedule_sampler.sample(micro.shape[0], device)
@@ -329,7 +329,8 @@ class TrainLoop:
                 log_loss_dict(
                     self.diffusion, t, {k: v * weights for k, v in losses.items()}
                 )
-            self.mp_trainer.backward(scaler.scale(loss))
+            self.scaler.scale(loss).backward()
+            # self.mp_trainer.backward(scaler.scale(loss))
 
     def _update_ema(self):
         for rate, params in zip(self.ema_rate, self.ema_params):
