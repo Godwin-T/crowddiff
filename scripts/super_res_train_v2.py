@@ -86,7 +86,7 @@ def run_training(args, rank):
         **args_to_dict(args, sr_model_and_diffusion_defaults().keys())
     )
 
-    # model.to(dist_util.dev())
+    model.to(dist_util.dev())
     if args.use_fp16:
       model.half()
     
