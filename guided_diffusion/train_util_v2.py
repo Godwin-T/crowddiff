@@ -749,10 +749,8 @@ class TrainLoop:
                 )
 
             # Use scaler for backward pass
-            # self.scaler.scale(loss).backward()
+            self.scaler.scale(loss).backward()
             # self.scaler.scale(loss / num_microbatches).backward()
-            (loss / num_microbatches).backward()
-            # loss.backward()
 
 
     def _update_ema(self):
