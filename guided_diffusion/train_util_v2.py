@@ -409,7 +409,7 @@ def log_loss_dict(diffusion, ts, losses):
 def create_train_loop(train_loop):
             # Create a new instance with the same parameters
     return TrainLoop(
-        model=train_loop.model.__class__(),  # Create new model instance
+        model=train_loop.model, #.__class__(),  # Create new model instance
         diffusion=train_loop.diffusion,
         data=train_loop.data,
         val_data=train_loop.val_data,
