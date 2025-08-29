@@ -554,12 +554,13 @@ class TrainLoop:
         if self.resume_step:
             self._load_optimizer_state()
             self.ema_params = [
-                self._load_ema_parameters(rate) for rate in self.ema_rate
+                [p.detach().clone().cpu() for p in self.model.parameters()]
+                for _ in range(len(self.ema_rate))
             ]
         else:
             # Create a deep copy of model parameters for EMA
             self.ema_params = [
-                copy.deepcopy(list(p.cpu() for p in self.model.parameters()))
+                [p.detach().clone().cpu() for p in self.model.parameters()]
                 for _ in range(len(self.ema_rate))
             ]
 
